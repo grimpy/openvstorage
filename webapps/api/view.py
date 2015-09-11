@@ -16,18 +16,22 @@
 Metadata views
 """
 
+import os
+import imp
 import json
 import time
+import inspect
 from ovs.log.logHandler import LogHandler
 from ovs.extensions.generic.system import System
 from ovs.extensions.generic.configuration import Configuration
 from ovs.extensions.api.client import OVSClient
+from rest_framework.permissions import IsAuthenticated
 from django.views.generic import View
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.conf import settings
 from oauth2.decorators import auto_response, limit, authenticated
-from backend.decorators import required_roles, load
+from backend.decorators import required_roles, load, skip
 from ovs.dal.lists.bearertokenlist import BearerTokenList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
 from ovs.dal.lists.backendtypelist import BackendTypeList
@@ -168,3 +172,51 @@ def relay(*args, **kwargs):
             status_code = ex.status_code
         logger.exception('Error relaying call: {0}'.format(message))
         return HttpResponse(json.dumps({'error': message}), content_type='application/json', status=status_code)
+
+
+@skip(['accept_header'])
+def swagger(*args, **kwargs):
+    """
+    Emulates a swagger definition file.
+    """
+    _ = args, kwargs
+    # Set up the base definition
+    version = settings.VERSION[-1]
+    definition = {'swagger': '2.0',
+                  'info': {'title': 'Open vStorage',
+                           'description': 'The Open vStorage API',
+                           'version': str(version)},
+                  'basePath': '/api',
+                  'consumes': ['application/json'],
+                  'produces': ['application/json; version={0}'.format(version)],
+                  'securityDefinitions': {'oauth2': {'type': 'oauth2',
+                                                     'flow': 'password',
+                                                     'tokenUrl': 'oauth2/token',
+                                                     'scopes': {'read': 'Read access',
+                                                                'write': 'Write access',
+                                                                'manage': 'Management access'}}},
+                  'security': [{'oauth2': ['read', 'write', 'manage']}],
+                  'parameters': {'contents': {'name': 'contents',
+                                              }},
+                  'paths': {'/': {'get': {'description': 'API metadata'}}}}
+    # Generate basic paths
+    path = os.path.join(os.path.dirname(__file__), 'backend', 'views')
+    for filename in os.listdir(path):
+        if os.path.isfile(os.path.join(path, filename)) and filename.endswith('.py'):
+            name = filename.replace('.py', '')
+            module = imp.load_source(name, os.path.join(path, filename))
+            for member in inspect.getmembers(module):
+                if inspect.isclass(member[1]) \
+                        and member[1].__module__ == name \
+                        and 'ViewSet' in [base.__name__ for base in member[1].__bases__]:
+                    functions = dict(inspect.getmembers(member[1], inspect.ismethod))
+                    url = '/{0}'.format(member[1].prefix)
+                    definition['paths'][url] = {}
+                    has_authentication = hasattr(member[1], 'permission_classes') and IsAuthenticated in member[1].permission_classes
+                    if 'list' in functions:
+                        function = functions['list']
+                        definition['paths'][url]['get'] = {'description': function.__doc__.strip()}
+                        if has_authentication is True and hasattr(function, 'attr') and 'roles' in function.attr:
+                            definition['paths'][url]['get']['security'] = [{'oauth2': function.attr['roles']}]
+    # Return the definition as JSON
+    return HttpResponse(json.dumps(definition), content_type='application/json')

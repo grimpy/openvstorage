@@ -41,10 +41,10 @@ class TaskViewSet(viewsets.ViewSet):
         Overview of active, scheduled, reserved and revoked tasks
         """
         inspector = inspect()
-        data = {'active'   : inspector.active(),
+        data = {'active': inspector.active(),
                 'scheduled': inspector.scheduled(),
-                'reserved' : inspector.reserved(),
-                'revoked'  : inspector.revoked()}
+                'reserved': inspector.reserved(),
+                'revoked': inspector.revoked()}
         return Response(data, status=status.HTTP_200_OK)
 
     @log()
@@ -59,12 +59,12 @@ class TaskViewSet(viewsets.ViewSet):
             result_data = result.result
         else:
             result_data = str(result.result) if result.result is not None else None
-        data = {'id'        : result.id,
-                'status'    : result.status,
+        data = {'id': result.id,
+                'status': result.status,
                 'successful': result.successful(),
-                'failed'    : result.failed(),
-                'ready'     : result.ready(),
-                'result'    : result_data}
+                'failed': result.failed(),
+                'ready': result.ready(),
+                'result': result_data}
         return Response(data, status=status.HTTP_200_OK)
 
     @link()

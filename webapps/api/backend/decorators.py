@@ -73,9 +73,30 @@ def required_roles(roles):
                 raise PermissionDenied('This call requires roles: %s' % (', '.join(roles)))
             return f(*args, **kw)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
+        new_function.attr['roles'] = roles
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
+    return wrap
+
+
+def skip(elements):
+    """
+    Registers elements that the function wants to get skipped
+    """
+    def wrap(function):
+        """
+        Wrapper function
+        """
+        if not hasattr(function, 'attr'):
+            function.attr = {}
+        function.attr['skip'] = elements
+        return function
     return wrap
 
 
@@ -166,8 +187,13 @@ def load(object_type=None, min_version=settings.VERSION[0], max_version=settings
             # Call the function
             return f(args[0], **new_kwargs)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
     return wrap
 
@@ -257,8 +283,13 @@ def return_list(object_type, default_sort=None):
             # 7. Building response
             return Response(result, status=status.HTTP_200_OK)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
     return wrap
 
@@ -285,8 +316,13 @@ def return_object(object_type):
             obj = f(*args, **kwargs)
             return Response(FullSerializer(object_type, contents=contents, instance=obj).data, status=status.HTTP_200_OK)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
     return wrap
 
@@ -306,8 +342,13 @@ def return_task():
             task = f(*args, **kwargs)
             return Response(task.id, status=status.HTTP_200_OK)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
     return wrap
 
@@ -329,8 +370,13 @@ def return_plain():
             result = f(*args, **kwargs)
             return Response(result, status=status.HTTP_200_OK)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
 
     return wrap
@@ -380,8 +426,13 @@ def limit(amount, per, timeout):
                 mutex.release()
             return f(*args, **kwargs)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
     return wrap
 
@@ -421,8 +472,13 @@ def log():
             # Call the function
             return f(*args, **kwargs)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
 
     return wrap

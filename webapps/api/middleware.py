@@ -45,14 +45,24 @@ class OVSMiddleware(object):
         # Processes CORS preflight requests
         if request.method == 'OPTIONS' and 'HTTP_ACCESS_CONTROL_REQUEST_METHOD' in request.META:
             return HttpResponse()
-        # Validate version
-        path = request.path
-        if path != '/api/' and '/api/oauth2/' not in path:
-            if 'HTTP_ACCEPT' not in request.META or regex.match(request.META['HTTP_ACCEPT']) is None:
-                return HttpResponseNotAcceptable(
-                    '{"error": "The version required by the client should be added to the Accept header. E.g.: \'Accept: application/json; version=1\'"}',
-                    content_type='application/json'
-                )
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        """
+        Processes view resolution
+        """
+        _ = self, view_args, view_kwargs
+        skip = []
+        if hasattr(view_func, 'attr'):
+            skip = view_func.attr.get('skip', [])
+        if 'accept_header' not in skip:
+            # Validate Accept-header
+            path = request.path
+            if path != '/api/' and '/api/oauth2/' not in path:
+                if 'HTTP_ACCEPT' not in request.META or regex.match(request.META['HTTP_ACCEPT']) is None:
+                    return HttpResponseNotAcceptable(
+                        '{"error": "The version required by the client should be added to the Accept header. E.g.: \'Accept: application/json; version=1\'"}',
+                        content_type='application/json'
+                    )
         return None
 
     def process_response(self, request, response):

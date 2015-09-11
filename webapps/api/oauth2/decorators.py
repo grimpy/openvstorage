@@ -68,8 +68,13 @@ def auto_response():
                 logger.error('Got invalid function return data in auto_reponse')
                 return HttpResponseServerError()
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
     return wrap
 
@@ -116,8 +121,13 @@ def limit(amount, per, timeout):
                 mutex.release()
             return f(self, request, *args, **kwargs)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
     return wrap
 
@@ -153,8 +163,13 @@ def log():
             # Call the function
             return f(self, request, *args, **kwargs)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
 
     return wrap
@@ -181,8 +196,13 @@ def authenticated():
             login(request, user)
             return f(*args, **kwargs)
 
+        if hasattr(f, 'attr'):
+            new_function.attr = f.attr
+        else:
+            new_function.attr = {}
         new_function.__name__ = f.__name__
         new_function.__module__ = f.__module__
+        new_function.__doc__ = f.__doc__
         return new_function
 
     return wrap
