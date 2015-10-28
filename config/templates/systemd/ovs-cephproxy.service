@@ -1,0 +1,14 @@
+[Unit]
+Description=ovs Ceph Proxy
+Requires=ovs-watcher-volumedriver.service
+After=ovs-watcher-volumedriver.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/CephProxyExe --loglevel Info --port <PORT> --cephconf <CEPHCONF>
+Restart=on-failure
+RestartSec=360
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

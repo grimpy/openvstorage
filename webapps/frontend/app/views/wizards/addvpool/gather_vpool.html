@@ -43,7 +43,7 @@ limitations under the License.
                 </div>
             </div>
         </div>
-        <div data-bind="visible: data.backend() !== 'local' && data.backend() !== 'distributed' && (data.backend() !== 'alba' || !data.localHost())">
+        <div data-bind="visible: data.backend() !== 'local' && data.backend() !== 'distributed' && (data.backend() !== 'alba' || !data.localHost()) && data.backend() !== 'ceph_ovs_proxy'">
             <div class="form-group" data-bind="css: { 'has-error': canContinue().fields.contains('host') }">
                 <label class="col-lg-3 control-label" for="inputVpoolHost" data-i18n="ovs:wizards.addvpool.gathervpool.host"></label>
                 <div class="col-lg-4">

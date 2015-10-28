@@ -37,7 +37,7 @@ class OVSMigrator(object):
         """
         Migrates from any version to any version, running all migrations required
         If previous_version is for example 0 and this script is at
-        verison 3 it will execute two steps:
+        version 3 it will execute two steps:
           - 1 > 2
           - 2 > 3
         @param previous_version: The previous version from which to start the migration.
@@ -385,4 +385,22 @@ class OVSMigrator(object):
 
             working_version = 4
 
+        # Version 5 introduced:
+        # - Ceph Proxy
+        if working_version < 5:
+            # Add backends
+            for backend_type_info in [('Ceph', 'ceph_ovs_proxy'), ]:
+                code = backend_type_info[1]
+                backend_type = BackendTypeList.get_backend_type_by_code(code)
+                if backend_type is None:
+                    backend_type = BackendType()
+                backend_type.name = backend_type_info[0]
+                backend_type.code = code
+                backend_type.save()
+             # Add service types
+            for service_type_info in ['CephProxy', ]:
+                service_type = ServiceType()
+                service_type.name = service_type_info
+                service_type.save()
+            working_version = 5
         return working_version

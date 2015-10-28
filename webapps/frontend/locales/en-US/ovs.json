@@ -62,7 +62,7 @@
         "backendtypes": {
             "s3": "S3",
             "amazon_s3": "S3 compatible",
-            "ceph_s3": "Ceph S3",
+            "ceph_ovs_proxy": "Ceph",
             "swift_s3": "Swift S3",
             "local": "Local FS",
             "distributed": "Distributed FS",
@@ -712,6 +712,7 @@
                 "choosebackend": "Choose one of the available backends",
                 "clientid": "Client ID",
                 "clientsecret": "Client secret",
+                "cephfileinvalid": "Invalid Ceph client conf file. Make sure the file was copied from the Ceph Master node to this Storage Router in the correct location and that it points to a valid Ceph Master",
                 "duplicatename": "This name already exists",
                 "extendedinfo": "Extended vPool information",
                 "host": "Host (FQDN/IP):",

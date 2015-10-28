@@ -27,6 +27,7 @@ define([
         self.loadStorageRoutersHandle = undefined;
         self.checkS3Handle            = undefined;
         self.checkMtptHandle          = undefined;
+        self.checkCephConfHandle      = undefined;
         self.fetchAlbaVPoolHandle     = undefined;
         self.loadStorageRouterHandle  = undefined;
         self.loadStorageDriversHandle = {};
@@ -177,6 +178,26 @@ define([
                                 physicalMetadataDeferred.resolve();
                             })
                             .fail(physicalMetadataDeferred.reject);
+                    }).promise(),
+                    $.Deferred(function(cephConfigFileDeferred) {
+                        if (self.data.backend() === 'ceph_ovs_proxy') {
+                            generic.xhrAbort(self.checkS3Handle);
+                            var postData = {
+                                cephconffile : self.data.name()
+                            };
+                            self.checkCephConfHandle = api.post('storagerouters/' + self.data.target().guid() + '/check_ceph_conf', { data: postData })
+                            .then(self.shared.tasks.wait)
+                            .done(function(data) {
+                                if (!data) {
+                                    validationResult.valid = false;
+                                    validationResult.reasons.push($.t('ovs:wizards.addvpool.gathervpool.cephfileinvalid'));
+                                }
+                                cephConfigFileDeferred.resolve();
+                            })
+                            .fail(cephConfigFileDeferred.reject)
+                        } else {
+                            cephConfigFileDeferred.resolve();
+                        }
                     }).promise()
                 ])
                     .always(function() {

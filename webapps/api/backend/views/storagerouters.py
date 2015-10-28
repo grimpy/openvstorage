@@ -201,6 +201,20 @@ class StorageRouterViewSet(viewsets.ViewSet):
 
     @action()
     @log()
+    @required_roles(['read'])
+    @return_task()
+    @load(StorageRouter)
+    def check_ceph_conf(self, storagerouter, cephconffile):
+        """
+        Validates whether the Ceph config file for a Ceph Proxy is available
+        """
+        cephconffile = str(cephconffile)
+        return StorageRouterController.check_ceph_conf.s(cephconffile).apply_async(
+            routing_key='sr.{0}'.format(storagerouter.machine_id)
+        )
+
+    @action()
+    @log()
     @required_roles(['read', 'write', 'manage'])
     @return_task()
     @load(StorageRouter)

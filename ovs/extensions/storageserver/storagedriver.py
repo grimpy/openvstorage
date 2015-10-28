@@ -198,7 +198,7 @@ class StorageDriverConfiguration(object):
         },
         'storagedriver': {
             'backend_connection_manager': {
-                'optional': ['backend_connection_pool_capacity', 'backend_type', 's3_connection_host', 's3_connection_port', 's3_connection_username', 's3_connection_password', 's3_connection_verbose_logging', 's3_connection_use_ssl', 's3_connection_ssl_verify_host', 's3_connection_ssl_cert_file', 's3_connection_flavour', 'alba_connection_host', 'alba_connection_port', 'alba_connection_timeout', 'alba_connection_preset', ],
+                'optional': ['backend_connection_pool_capacity', 'backend_type', 's3_connection_host', 's3_connection_port', 's3_connection_username', 's3_connection_password', 's3_connection_verbose_logging', 's3_connection_use_ssl', 's3_connection_ssl_verify_host', 's3_connection_ssl_cert_file', 's3_connection_flavour', 'alba_connection_host', 'alba_connection_port', 'alba_connection_timeout', 'alba_connection_preset', 'ovs_proxy_connection_type', 'ovs_proxy_connection_host', 'ovs_proxy_connection_port', 'ovs_proxy_connection_timeout', 'ovs_proxy_connection_preset',],
                 'mandatory': ['local_connection_path', ]
             },
             'content_addressed_cache': {

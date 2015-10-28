@@ -29,7 +29,7 @@ define([
             albaPreset:              ko.observable(),
             arakoonFound:            ko.observable(false),
             backend:                 ko.observable('alba'),
-            backends:                ko.observableArray(['alba', 'ceph_s3', 'amazon_s3', 'swift_s3', 'distributed']),
+            backends:                ko.observableArray(['alba', 'ceph_ovs_proxy', 'amazon_s3', 'swift_s3', 'distributed']),
             cacheStrategies:         ko.observableArray(['on_read', 'on_write', 'none']),
             cacheStrategy:           ko.observable(''),
             dedupeMode:              ko.observable(''),

@@ -48,7 +48,7 @@ define([
         data.albaBackend(undefined);
         data.albaBackends(undefined);
         data.backend('alba');
-        data.backends(['alba', 'ceph_s3', 'amazon_s3', 'swift_s3', 'distributed']);
+        data.backends(['alba', 'ceph_ovs_proxy', 'amazon_s3', 'swift_s3', 'distributed']);
         data.cacheStrategy('on_read');
         data.dedupeMode('dedupe');
         data.distributedMtpt(undefined);

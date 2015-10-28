@@ -35,6 +35,7 @@ from ovs.dal.hybrids.storagerouter import StorageRouter
 from ovs.dal.hybrids.vpool import VPool
 from ovs.dal.lists.backendtypelist import BackendTypeList
 from ovs.dal.lists.clientlist import ClientList
+from ovs.dal.lists.servicelist import ServiceList
 from ovs.dal.lists.servicetypelist import ServiceTypeList
 from ovs.dal.lists.storagedriverlist import StorageDriverList
 from ovs.dal.lists.storagerouterlist import StorageRouterList
@@ -178,16 +179,17 @@ class StorageRouterController(object):
                            'integratemgmt': (bool, None),
                            'readcache_size': (int, {'min': 1, 'max': 10240}),
                            'writecache_size': (int, {'min': 1, 'max': 10240})}
-        required_params_for_new_vpool = {'type': (str, ['local', 'distributed', 'alba', 'ceph_s3', 'amazon_s3', 'swift_s3']),
+        required_params_for_new_vpool = {'type': (str, ['local', 'distributed', 'alba', 'ceph_ovs_proxy', 'amazon_s3', 'swift_s3']),
                                          'config_params': sd_config_params,
                                          'connection_host': (str, Toolbox.regex_ip, False),
                                          'connection_port': (int, None),
                                          'connection_backend': (dict, None),
                                          'connection_username': (str, None),
                                          'connection_password': (str, None)}
-        required_params_for_new_distributed_vpool = {'type': (str, ['local', 'distributed', 'alba', 'ceph_s3', 'amazon_s3', 'swift_s3']),
+        required_params_for_new_distributed_vpool = {'type': (str, ['local', 'distributed', 'alba', 'ceph_ovs_proxy', 'amazon_s3', 'swift_s3']),
                                                      'config_params': sd_config_params}  # 'distributed_mountpoint': (str, None)}  @TODO: Enable again once local has been removed
-
+        required_params_for_ceph_proxy_vpool = {'type': (str, 'ceph_ovs_proxy'),
+                                                'vpool_name': (str, Toolbox.regex_vpool)}
         ###############
         # VALIDATIONS #
         ###############
@@ -218,11 +220,13 @@ class StorageRouterController(object):
 
             if parameters['type'] in ['local', 'distributed']:
                 Toolbox.verify_required_params(required_params_for_new_distributed_vpool, parameters)
+            elif parameters['type'] == 'ceph_ovs_proxy':
+                Toolbox.verify_required_params(required_params_for_ceph_proxy_vpool, parameters)
             else:
                 Toolbox.verify_required_params(required_params_for_new_vpool, parameters)
 
         # 4. Check backend type existence
-        if backend_type.code not in ['alba', 'distributed', 'ceph_s3', 'amazon_s3', 'swift_s3', 'local']:
+        if backend_type.code not in ['alba', 'distributed', 'ceph_ovs_proxy', 'amazon_s3', 'swift_s3', 'local']:
             raise ValueError('Unsupported backend type specified: "{0}"'.format(backend_type.code))
 
         # 5. Check storagerouter existence
@@ -372,7 +376,7 @@ class StorageRouterController(object):
                     raise RuntimeError('Could not load metadata from remote environment {0}'.format(connection_host))
                 vpool.metadata = {'metadata': metadata,
                                   'preset': preset_name}
-            elif vpool.backend_type.code in ['ceph_s3', 'amazon_s3', 'swift_s3']:
+            elif vpool.backend_type.code in ['amazon_s3', 'swift_s3']:
                 if vpool.backend_type.code in ['swift_s3']:
                     strict_consistency = 'false'
                     s3_connection_flavour = 'SWIFT'
@@ -388,7 +392,25 @@ class StorageRouterController(object):
                                   's3_connection_strict_consistency': strict_consistency,
                                   's3_connection_verbose_logging': 1,
                                   'backend_type': 'S3'}
+            elif vpool.backend_type.code == 'ceph_ovs_proxy':
+                ceph_proxy_port = 26500
+                for service in ServiceList.get_services():
+                    if service.name == 'CephProxy':
+                        ceph_proxy_port += 1
+                service = DalService()
+                service.name = "ovs-cephproxy-{0}".format(vpool_name)
+                service.type = ServiceTypeList.get_by_name('CephProxy')
+                service.ports.append(ceph_proxy_port)
+                service.storagerouter = storagerouter
+                service.save()
 
+                ceph_proxy_config_file = '/etc/ceph/{0}.conf'.format(vpool_name)
+                vpool.metadata = {"backend_type": "OVSPROXY",
+                                  "ovs_proxy_connection_type":"CEPH",
+                                  "ovs_proxy_connection_host": "127.0.0.1",
+                                  "ovs_proxy_connection_port": str(ceph_proxy_port),
+                                  "ovs_proxy_connection_timeout":"5",
+                                  "ovs_proxy_connection_preset":"ourpreset"}
             vpool.name = vpool_name
             vpool.login = connection_username
             vpool.password = connection_password
@@ -755,6 +777,26 @@ class StorageRouterController(object):
                     root_client.run('virsh pool-start {0}'.format(vpool_name))
                     root_client.run('virsh pool-autostart {0}'.format(vpool_name))
 
+        # Start ovs ceph proxy BEFORE starting volumedriver
+        if vpool.backend_type.code == 'ceph_ovs_proxy':
+            params = {'PORT': str(ceph_proxy_port),
+                      'CEPHCONF': ceph_proxy_config_file}
+            ceph_proxy_service = "ovs-cephproxy_{0}".format(vpool.name)
+            ServiceManager.add_service("ovs-cephproxy", params=params, client=root_client, target_name=ceph_proxy_service)
+            ServiceManager.enable_service(ceph_proxy_service, client=root_client)
+            ServiceManager.start_service(ceph_proxy_service, client=root_client)
+            logger.debug('Starting ceph proxy service {0}'.format(ceph_proxy_service))
+            tries = 0
+            while tries < 6:
+                running = ServiceManager.get_service_status(ceph_proxy_service, client=root_client)
+                if running is False:
+                    raise RuntimeError('CephProxy service failed to start (service not running)')
+                else:
+                    break
+                tries += 1
+                time.sleep(10)
+            logger.debug('CephProxy running')
+
         # Start service
         storagedriver = StorageDriver(storagedriver.guid)
         current_startup_counter = storagedriver.startup_counter
@@ -832,9 +874,14 @@ class StorageRouterController(object):
                     lsrc.server_revision()
         except UnableToConnectException:
             raise RuntimeError('Not all StorageRouters are reachable')
-        except Exception, ex:
+        except Exception as ex:
             if 'ClusterNotReachableException' in str(ex):
-                raise RuntimeError('Not all StorageDrivers are reachable, please (re)start them and try again')
+                if len(vpool.storagedrivers) > 1:
+                    raise RuntimeError('Not all StorageDrivers are reachable, please (re)start them and try again')
+                else:
+                    logger.info('StorageDriver not reachable (might not be started or already removed)')
+            elif 'cannot open file' in str(ex):
+                logger.info('File not present (already removed or not added).')
             else:
                 raise
 
@@ -850,6 +897,7 @@ class StorageRouterController(object):
         voldrv_service = 'volumedriver_{0}'.format(vpool.name)
         dtl_service = 'dtl_{0}'.format(vpool.name)
         albaproxy_service = 'albaproxy_{0}'.format(vpool.name)
+        cephproxy_service = 'cephproxy_{0}'.format(vpool.name)
         removal_mdsservices = [mds_service for mds_service in vpool.mds_services
                                if mds_service.service.storagerouter_guid == storagerouter.guid]
 
@@ -878,6 +926,9 @@ class StorageRouterController(object):
         if ServiceManager.has_service(voldrv_service, client=client):
             ServiceManager.disable_service(voldrv_service, client=client)
             ServiceManager.stop_service(voldrv_service, client=client)
+        if ServiceManager.has_service(cephproxy_service, client=client):
+            ServiceManager.disable_service(cephproxy_service, client=client)
+            ServiceManager.stop_service(cephproxy_service, client=client)
         if ServiceManager.has_service(dtl_service, client=client):
             ServiceManager.disable_service(dtl_service, client=client)
             ServiceManager.stop_service(dtl_service, client=client)
@@ -937,7 +988,7 @@ class StorageRouterController(object):
                     break
 
         # Remove services
-        services_to_remove = [voldrv_service, dtl_service]
+        services_to_remove = [voldrv_service, dtl_service, cephproxy_service]
         if storagedriver.alba_proxy is not None:
             services_to_remove.append(albaproxy_service)
         for service in services_to_remove:
@@ -1048,7 +1099,7 @@ class StorageRouterController(object):
                         routing_key='sr.{0}'.format(storageappliance_machineid)
                     )
                     result.wait()
-            except Exception, ex:
+            except Exception as ex:
                 logger.error('{0}'.format(ex))
                 success = False
         # Remove Storage Drivers
@@ -1076,7 +1127,7 @@ class StorageRouterController(object):
                         routing_key='sr.{0}'.format(storagerouter_machineid)
                     )
                     result.wait()
-            except Exception, ex:
+            except Exception as ex:
                 logger.error('{0}'.format(ex))
                 success = False
         return success
@@ -1192,6 +1243,32 @@ class StorageRouterController(object):
         if not os.path.exists(mountpoint):
             return True
         return check_output('sudo -s ls -al {0} | wc -l'.format(mountpoint), shell=True).strip() == '3'
+
+    @staticmethod
+    @celery.task(name='ovs.storagerouter.check_ceph_conf')
+    def check_ceph_conf(cephconffile):
+        """
+        Validates whether the Ceph config file for a Ceph Proxy is available
+        """
+        root_client = SSHClient('127.0.0.1',
+                                username='root')
+        ceph_file_path = "/etc/ceph/{0}.conf".format(cephconffile)
+        if not root_client.file_exists(ceph_file_path):
+            logger.info('Ceph config file {0} not found'.format(ceph_file_path))
+            return False
+        try:
+            test_command = "ceph -c {0} --connect-timeout=10 status 2>&1".format(ceph_file_path)
+            logger.info('Testing ceph connection: {0}'.format(test_command))
+            output = root_client.run(test_command)
+            for line in output.splitlines():
+                if "InterruptedOrTimeoutError" in line:
+                    return False
+            logger.debug('Ceph status output {0}'.format(output))
+        except Exception as ex:
+            logger.exception(ex)
+            return False
+        return True
+
 
     @staticmethod
     @celery.task(name='ovs.storagerouter.get_update_status')
