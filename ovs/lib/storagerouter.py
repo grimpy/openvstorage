@@ -394,15 +394,31 @@ class StorageRouterController(object):
                                   'backend_type': 'S3'}
             elif vpool.backend_type.code == 'ceph_ovs_proxy':
                 ceph_proxy_port = 26500
+                create_service = True
+                ceph_service_name = "ovs-cephproxy-{0}".format(vpool_name)
                 for service in ServiceList.get_services():
-                    if service.name == 'CephProxy':
-                        ceph_proxy_port += 1
-                service = DalService()
-                service.name = "ovs-cephproxy-{0}".format(vpool_name)
-                service.type = ServiceTypeList.get_by_name('CephProxy')
-                service.ports.append(ceph_proxy_port)
-                service.storagerouter = storagerouter
-                service.save()
+                    if service.type.name == 'CephProxy':
+                        if service.storagerouter == storagerouter:
+                            if service.name == ceph_service_name:
+                                # readding same proxy on same node ?
+                                if len(service.ports) > 0:
+                                    ceph_proxy_port = service.ports[0]
+                                    create_service = False
+                                else:
+                                    service.delete()
+                                break
+                            else:
+                                # add another proxy on same node
+                                ceph_proxy_port += 1
+                        # ignore services on other storagerouters
+
+                if create_service:
+                    service = DalService()
+                    service.name = ceph_service_name
+                    service.type = ServiceTypeList.get_by_name('CephProxy')
+                    service.ports=[ceph_proxy_port]
+                    service.storagerouter = storagerouter
+                    service.save()
 
                 ceph_proxy_config_file = '/etc/ceph/{0}.conf'.format(vpool_name)
                 vpool.metadata = {"backend_type": "OVSPROXY",
@@ -1048,6 +1064,10 @@ class StorageRouterController(object):
         DiskController.sync_with_reality(storagerouter.guid)
 
         # First model cleanup
+        for service in ServiceList.get_services():
+            if service.name == 'ovs-cephproxy-{0}'.format(vpool.name):
+                if service.storagerouter == storagerouter:
+                    service.delete()
         if storagedriver.alba_proxy is not None:
             service = storagedriver.alba_proxy.service
             storagedriver.alba_proxy.delete()
