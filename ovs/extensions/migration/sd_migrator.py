@@ -26,7 +26,7 @@ class StorageDriverMigrator(object):
         """
         Migrates from any version to any version, running all migrations required
         If previous_version is for example 0 and this script is at
-        verison 3 it will execute two steps:
+        version 3 it will execute two steps:
           - 1 > 2
           - 2 > 3
         """
@@ -49,14 +49,18 @@ class StorageDriverMigrator(object):
                         continue  # There's also a .cfg file, so this is an alba_proxy configuration file
                     storagedriver_config = StorageDriverConfiguration('storagedriver', vpool_name)
                     storagedriver_config.load()
-                    config = copy.deepcopy(storagedriver_config.configuration['backend_connection_manager'])
-                    storagedriver_config.clean()
-                    storagedriver_config.configure_backend_connection_manager(backend_type='OVSPROXY',
-                                                                              ovs_proxy_connection_type='ALBA',
-                                                                              ovs_proxy_connection_host=config['alba_connection_host'],
-                                                                              ovs_proxy_connection_port=config['alba_connection_port'],
-                                                                              ovs_proxy_connection_preset=config['alba_connection_preset'])
-                    storagedriver_config.save()
+                    existing_config = storagedriver_config.configuration['backend_connection_manager']
+                    if existing_config['backend_type'] == 'ALBA':
+                        # double check to make sure we don't overwrite other backends
+                        # also don't overwrite already updated configs
+                        config = copy.deepcopy(existing_config)
+                        storagedriver_config.clean()
+                        storagedriver_config.configure_backend_connection_manager(backend_type='OVSPROXY',
+                                                                                  ovs_proxy_connection_type='ALBA',
+                                                                                  ovs_proxy_connection_host=config['alba_connection_host'],
+                                                                                  ovs_proxy_connection_port=config['alba_connection_port'],
+                                                                                  ovs_proxy_connection_preset=config['alba_connection_preset'])
+                    storagedriver_config.save(reload_config=False)
             working_version = 1
 
         # Version 2 introduced

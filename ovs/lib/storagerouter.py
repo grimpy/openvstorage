@@ -698,10 +698,13 @@ class StorageRouterController(object):
         storagedriver_config.load(client)
         storagedriver_config.clean()  # Clean out obsolete values
         if vpool.backend_type.code == 'alba':
-            storagedriver_config.configure_backend_connection_manager(alba_connection_host='127.0.0.1',
-                                                                      alba_connection_port=alba_proxy.service.ports[0],
-                                                                      alba_connection_preset=vpool.metadata['preset'],
-                                                                      backend_type='ALBA')
+            alba_vpool_metadata = {"backend_type": "OVSPROXY",
+                                   "ovs_proxy_connection_type": "ALBA",
+                                   "ovs_proxy_connection_host": "127.0.0.1",
+                                   "ovs_proxy_connection_port": alba_proxy.service.ports[0],
+                                   "ovs_proxy_connection_timeout": "5",
+                                   "ovs_proxy_connection_preset": vpool.metadata['preset']}
+            storagedriver_config.configure_backend_connection_manager(**alba_vpool_metadata)
         elif vpool.backend_type.code in ['local', 'distributed']:
             storagedriver_config.configure_backend_connection_manager(**local_backend_data)
         else:
