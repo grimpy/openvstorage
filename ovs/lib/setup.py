@@ -35,6 +35,7 @@ from ovs.extensions.generic.system import System
 from ovs.log.logHandler import LogHandler
 from ovs.lib.helpers.toolbox import Toolbox
 from ovs.extensions.migration.migrator import Migrator
+from ovs.extensions.migration.sd_migrator import StorageDriverMigrator
 from ovs.extensions.db.arakoon.ArakoonManagement import ArakoonManagementEx
 from ovs.extensions.packages.package import PackageManager
 from ovs.extensions.storage.persistentfactory import PersistentFactory
@@ -759,7 +760,19 @@ class SetupController(object):
                 SetupController._log_message('Failed to upgrade following nodes:\n - {0}\nPlease check /var/log/ovs/lib.log on {1} for more information'.format('\n - '.join([client.ip for client in failed_clients])), this_client.ip, 'error')
                 return
 
-            # 3. Post upgrade actions
+            # 3. Migrate
+            for client in ssh_clients:
+                try:
+                    SetupController._log_message('Started StorageDriver code migration', client.ip)
+                    with Remote(client.ip, [StorageDriverMigrator]) as remote:
+                        remote.StorageDriverMigrator.migrate()
+                    SetupController._log_message('Finished StorageDriver code migration', client.ip)
+                except Exception as ex:
+                    SetupController._remove_lock_files([upgrade_ongoing_check_file], ssh_clients)
+                    SetupController._log_message('StorageDriver code migration failed with error: {0}'.format(ex), client.ip, 'error')
+                    return
+
+            # 4. Post upgrade actions
             SetupController._log_message('Executing post upgrade actions', client_ip=this_client.ip)
             for client in ssh_clients:
                 for function in Toolbox.fetch_hooks('update', 'postupgrade'):
@@ -770,7 +783,7 @@ class SetupController(object):
                         SetupController._log_message('Post upgrade action failed with error: {0}'.format(ex),
                                                      client.ip, 'error')
 
-            # 4. Start services
+            # 5. Start services
             SetupController._log_message('Starting services', client_ip=this_client.ip)
             SetupController._change_services_state(services=services_to_restart,
                                                    ssh_clients=ssh_clients,
