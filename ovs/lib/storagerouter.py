@@ -392,41 +392,7 @@ class StorageRouterController(object):
                                   's3_connection_strict_consistency': strict_consistency,
                                   's3_connection_verbose_logging': 1,
                                   'backend_type': 'S3'}
-            elif vpool.backend_type.code == 'ceph_ovs_proxy':
-                ceph_proxy_port = 26500
-                create_service = True
-                ceph_service_name = "ovs-cephproxy-{0}".format(vpool_name)
-                for service in ServiceList.get_services():
-                    if service.type.name == 'CephProxy':
-                        if service.storagerouter == storagerouter:
-                            if service.name == ceph_service_name:
-                                # readding same proxy on same node ?
-                                if len(service.ports) > 0:
-                                    ceph_proxy_port = service.ports[0]
-                                    create_service = False
-                                else:
-                                    service.delete()
-                                break
-                            else:
-                                # add another proxy on same node
-                                ceph_proxy_port += 1
-                        # ignore services on other storagerouters
 
-                if create_service:
-                    service = DalService()
-                    service.name = ceph_service_name
-                    service.type = ServiceTypeList.get_by_name('CephProxy')
-                    service.ports=[ceph_proxy_port]
-                    service.storagerouter = storagerouter
-                    service.save()
-
-                ceph_proxy_config_file = '/etc/ceph/{0}.conf'.format(vpool_name)
-                vpool.metadata = {"backend_type": "OVSPROXY",
-                                  "ovs_proxy_connection_type":"CEPH",
-                                  "ovs_proxy_connection_host": "127.0.0.1",
-                                  "ovs_proxy_connection_port": str(ceph_proxy_port),
-                                  "ovs_proxy_connection_timeout":"5",
-                                  "ovs_proxy_connection_preset":"ourpreset"}
             vpool.name = vpool_name
             vpool.login = connection_username
             vpool.password = connection_password
@@ -447,6 +413,42 @@ class StorageRouterController(object):
                 if port_storagedriver.alba_proxy is not None:
                     model_ports_in_use.append(port_storagedriver.alba_proxy.service.ports[0])
 
+        if vpool.backend_type.code == 'ceph_ovs_proxy':
+            ceph_proxy_port = 26500
+            create_service = True
+            ceph_service_name = "ovs-cephproxy-{0}".format(vpool_name)
+            for service in ServiceList.get_services():
+                if service.type.name == 'CephProxy':
+                    if service.storagerouter == storagerouter:
+                        if service.name == ceph_service_name:
+                            # readding same proxy on same node ?
+                            if len(service.ports) > 0:
+                                ceph_proxy_port = service.ports[0]
+                                create_service = False
+                            else:
+                                service.delete()
+                            break
+                        else:
+                            # add another proxy on same node
+                            ceph_proxy_port += 1
+                    # ignore services on other storagerouters
+
+            if create_service:
+                service = DalService()
+                service.name = ceph_service_name
+                service.type = ServiceTypeList.get_by_name('CephProxy')
+                service.ports=[ceph_proxy_port]
+                service.storagerouter = storagerouter
+                service.save()
+
+            ceph_proxy_config_file = '/etc/ceph/{0}.conf'.format(vpool_name)
+            vpool.metadata = {"backend_type": "OVSPROXY",
+                              "ovs_proxy_connection_type":"CEPH",
+                              "ovs_proxy_connection_host": "127.0.0.1",
+                              "ovs_proxy_connection_port": str(ceph_proxy_port),
+                              "ovs_proxy_connection_timeout":"5",
+                              "ovs_proxy_connection_preset":"ourpreset"}
+            vpool.save()
         # Connection information is Storage Driver related information
         new_storagedriver = False
         if storagedriver is None:
@@ -799,7 +801,8 @@ class StorageRouterController(object):
         # Start ovs ceph proxy BEFORE starting volumedriver
         if vpool.backend_type.code == 'ceph_ovs_proxy':
             params = {'PORT': str(ceph_proxy_port),
-                      'CEPHCONF': ceph_proxy_config_file}
+                      'CEPHCONF': ceph_proxy_config_file,
+                      'VPOOL_NAME': vpool.name}
             ceph_proxy_service = "ovs-cephproxy_{0}".format(vpool.name)
             ServiceManager.add_service("ovs-cephproxy", params=params, client=root_client, target_name=ceph_proxy_service)
             ServiceManager.enable_service(ceph_proxy_service, client=root_client)

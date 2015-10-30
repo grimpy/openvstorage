@@ -1,7 +1,7 @@
 [Unit]
 Description=ovs Ceph Proxy
-Requires=ovs-watcher-volumedriver.service
-After=ovs-watcher-volumedriver.service
+Wants=ovs-volumedriver_<VPOOL_NAME>.service
+Before=ovs-volumedriver_<VPOOL_NAME>.service
 
 [Service]
 Type=simple

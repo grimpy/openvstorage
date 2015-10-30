@@ -388,19 +388,21 @@ class OVSMigrator(object):
         # Version 5 introduced:
         # - Ceph Proxy
         if working_version < 5:
-            # Add backends
+            # Add backend type
             for backend_type_info in [('Ceph', 'ceph_ovs_proxy'), ]:
                 code = backend_type_info[1]
                 backend_type = BackendTypeList.get_backend_type_by_code(code)
                 if backend_type is None:
                     backend_type = BackendType()
-                backend_type.name = backend_type_info[0]
-                backend_type.code = code
-                backend_type.save()
-             # Add service types
+                    backend_type.name = backend_type_info[0]
+                    backend_type.code = code
+                    backend_type.save()
+             # Add service type
             for service_type_info in ['CephProxy', ]:
-                service_type = ServiceType()
-                service_type.name = service_type_info
-                service_type.save()
+                service_type = ServiceTypeList.get_by_name(service_type_info)
+                if service_type is None:
+                    service_type = ServiceType()
+                    service_type.name = service_type_info
+                    service_type.save()
             working_version = 5
         return working_version
