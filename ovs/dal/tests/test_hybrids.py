@@ -1,11 +1,11 @@
 #!/usr/bin/env python2
-#  Copyright 2014 Open vStorage NV
+#  Copyright 2014 iNuron NV
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
+# Licensed under the Open vStorage Non-Commercial License, Version 1.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.openvstorage.org/OVS_NON_COMMERCIAL
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,7 +29,7 @@ from ovs.dal.relations import RelationMapper
 
 class Hybrid(TestCase):
     """
-    The basic unittestsuite will test all basic functionality of the DAL framework
+    The basic unittest suite will test all basic functionality of the DAL framework
     It will also try accessing all dynamic properties of all hybrids making sure
     that code actually works. This however means that all loaded 3rd party libs
     need to be mocked
@@ -97,7 +97,7 @@ class Hybrid(TestCase):
             self.assertIsInstance(cls._relations, list, '_relations required: {0}'.format(cls.__name__))
             self.assertIsInstance(cls._dynamics, list, '_dynamics required: {0}'.format(cls.__name__))
             # Check types
-            allowed_types = [int, float, str, bool, list, dict]
+            allowed_types = [int, float, long, str, bool, list, dict]
             for prop in cls._properties:
                 is_allowed_type = prop.property_type in allowed_types \
                     or isinstance(prop.property_type, list)
@@ -122,7 +122,7 @@ class Hybrid(TestCase):
             for item in dir(instance):
                 if hasattr(cls, item) and isinstance(getattr(cls, item), property):
                     properties.append(item)
-            # All expiries should be implemented
+            # All expires should be implemented
             missing_props = []
             for dynamic in instance._dynamics:
                 if dynamic.name not in properties:
