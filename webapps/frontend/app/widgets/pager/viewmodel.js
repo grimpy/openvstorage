@@ -34,7 +34,7 @@ define([
         self._lastPage       = ko.observable(1);
         self._pageFirst      = ko.observable(0);
         self._pageLast       = ko.observable(0);
-        self.headers         = ko.observableArray([]);
+        self.headers         = ko.observable(ko.observableArray([]));
         self.settings        = ko.observable({});
         self.padding         = ko.observable(2);
         self.controls        = ko.observable(true);
@@ -309,15 +309,17 @@ define([
             }
             if (settings.hasOwnProperty('container')) {
                 self.container(settings.container);
-            } else {
-                self.container(ko.observableArray([]));
             }
             self.loadData = generic.tryGet(settings, 'loadData');
             self.refresh = parseInt(generic.tryGet(settings, 'refreshInterval', '5000'), 10);
             self.key = generic.tryGet(settings, 'key', 'guid');
             self.skipOn = generic.tryGet(settings, 'skipon', undefined);
             self.settings(settings);
-            self.headers(settings.headers);
+            if (settings.headers.isObservableArray === true) {
+                self.headers(settings.headers);
+            } else {
+                self.headers()(settings.headers);
+            }
             self.preloading(generic.tryGet(settings, 'preloading', false));
             self.controls(generic.tryGet(settings, 'controls', true));
             self.sortable(generic.tryGet(settings, 'sortable', false));
@@ -331,7 +333,7 @@ define([
                         sorting.directions[key] = item[0] !== '-';
                     });
                 } else {
-                    key = self.headers()[0].key;
+                    key = self.headers()()[0].key;
                     sorting.sequence = [key];
                     sorting.directions[key] = true;
                 }

@@ -19,10 +19,6 @@ define(['knockout'], function(ko){
             messaging      : undefined,
             tasks          : undefined,
             authentication : undefined,
-            registration   : ko.observable({
-                registered: false,
-                remaining: null
-            }),
             defaultLanguage: 'en-US',
             language       : 'en-US',
             mode           : ko.observable('full'),
@@ -30,13 +26,15 @@ define(['knockout'], function(ko){
             footerData     : ko.observable(ko.observable()),
             nodes          : undefined,
             identification : ko.observable(),
+            hooks          : {},
+            registration   : ko.observable({
+                registered: false,
+                remaining: null
+            }),
             user           : {
                 username: ko.observable(),
                 guid    : ko.observable(),
                 roles   : ko.observableArray([])
-            },
-            hooks          : {
-                dashboards: []
             }
         };
     };

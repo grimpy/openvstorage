@@ -38,13 +38,14 @@ define([
         self.loadVMachinesHandle      = undefined;
         self.loadVMachineGuidsHandle  = undefined;
 
-        // Observ ables
+        // Observables
         self.storageRoutersLoading = ko.observable(false);
         self.vPoolsLoading         = ko.observable(false);
         self.vMachinesLoading      = ko.observable(false);
         self.topVPoolMode          = ko.observable('topstoreddata');
         self.topVmachineMode       = ko.observable('topstoreddata');
         self.storageRouters        = ko.observableArray([]);
+        self.panels                = ko.observableArray([]);
         self.vPools                = ko.observableArray([]);
         self.amountOfVMachines     = ko.observable(0);
         self.topVMachines          = ko.observableArray([]);
@@ -222,18 +223,14 @@ define([
 
         // Durandal
         self.activate = function() {
-            $.each(shared.hooks.dashboards, function(index, dashboard) {
-                dashboard.activator.activateItem(dashboard.module);
-            });
+            generic.loadHookElements(shared.hooks, 'dashboard', 'panels', self.panels);
             self.refresher.init(self.load, 5000);
             self.refresher.run();
             self.refresher.start();
             self.shared.footerData(self.vPools);
         };
         self.deactivate = function() {
-            $.each(shared.hooks.dashboards, function(index, dashboard) {
-                dashboard.activator.deactivateItem(dashboard.module);
-            });
+            generic.unloadHookElements(shared.hooks, 'dashboard', 'panels', self.panels);
             self.refresher.stop();
             self.shared.footerData(ko.observable());
         };

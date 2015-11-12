@@ -29,7 +29,16 @@ define([
         self.vMachineCache       = {};
         self.storageRouterCache  = {};
         self.vPoolCache          = {};
-        self.vDiskHeaders        = [
+
+        // Handles
+        self.vDisksHandle = {};
+        self.vPoolsHandle = undefined;
+
+        // Observables
+        self.columns      = ko.observableArray([]);
+        self.tables       = ko.observableArray([]);
+        self.vPools       = ko.observableArray([]);
+        self.vDiskHeaders = ko.observableArray([
             { key: 'name',          value: $.t('ovs:generic.name'),          width: undefined },
             { key: 'vmachine',      value: $.t('ovs:generic.vmachine'),      width: 110       },
             { key: 'vpool',         value: $.t('ovs:generic.vpool'),         width: 110       },
@@ -41,14 +50,7 @@ define([
             { key: 'readSpeed',     value: $.t('ovs:generic.read'),          width: 100       },
             { key: 'writeSpeed',    value: $.t('ovs:generic.write'),         width: 100       },
             { key: 'dtlMode',       value: $.t('ovs:generic.dtl_status'),    width: 50        }
-        ];
-
-        // Handles
-        self.vDisksHandle = {};
-        self.vPoolsHandle = undefined;
-
-        // Observables
-        self.vPools = ko.observableArray([]);
+        ]);
 
         // Functions
         self.loadVDisks = function(page) {
@@ -107,6 +109,8 @@ define([
 
         // Durandal
         self.activate = function() {
+            generic.loadHookElements(shared.hooks, 'vdisks', 'tables', self.tables);
+            generic.loadHookElements(shared.hooks, 'vdisks', 'columns', self.columns, self.vDiskHeaders);
             self.refresher.init(function() {
                 if (generic.xhrCompleted(self.vPoolsHandle)) {
                     self.vPoolsHandle = api.get('vpools', { queryparams: { contents: 'statistics,stored_data' }})
@@ -138,6 +142,8 @@ define([
             self.shared.footerData(self.vPools);
         };
         self.deactivate = function() {
+            generic.unloadHookElements(shared.hooks, 'vdisks', 'tables', self.tables);
+            generic.unloadHookElements(shared.hooks, 'vdisks', 'columns', self.columns, self.vDiskHeaders);
             $.each(self.widgets, function(index, item) {
                 item.deactivate();
             });

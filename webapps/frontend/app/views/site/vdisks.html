@@ -63,6 +63,9 @@ limitations under the License.
                                     }, tooltip: 'ovs:generic.states.dtl.' + dtlMode()"
                          style="width: 14px; height: 14px;"></div>
                 </td>
+                <!-- ko foreach: $root.columns -->
+                    <!-- ko compose: $data.hook.activator --><!-- /ko -->
+                <!-- /ko -->
             </tr>
         </table>
     </div>
