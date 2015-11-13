@@ -24,6 +24,7 @@ limitations under the License.
             <a data-part="lazy-entry"
                data-bind="text: item().name,
                           attr: { href: $root.shared.routing.loadHash('vmachine-detail', { guid: item().guid }) }"></a>
+            <span data-part="lazy-entry-undefined"><i style="color: grey;" data-i18n="ovs:generic.novmachine"></i></span>
         </li>
         <li class="active" data-bind="text: name"></li>
     </ol>
@@ -70,6 +71,7 @@ limitations under the License.
                                 <span data-bind="lazyloader: { item: vMachine, loadedObservable: 'loaded', undefinedLoading: false }">
                                     <a data-part="lazy-entry" data-bind="text: item().name(),
                                                                          attr: { href: $root.shared.routing.loadHash('vmachine-detail', { guid: item().guid }) }"></a>
+                                    <span data-part="lazy-entry-undefined"><i data-i18n="ovs:generic.novmachine"></i></span>
                                 </span>
                             </td>
                             <td style="width: 15%;"  data-i18n="ovs:generic.cache"></td>
@@ -135,6 +137,10 @@ limitations under the License.
                         </tr>
                     </tbody>
                 </table>
+                <!-- ko foreach: $root.tables -->
+                    <div style="height: 15px;"></div>
+                    <!-- ko compose: $data.hook.activator --><!-- /ko -->
+                <!-- /ko -->
             </div>
         </div>
     </div>
@@ -146,6 +152,12 @@ limitations under the License.
             <li data-bind="tooltip: 'ovs:generic.management', visible: $root.shared.user.roles().contains('manage'), click: loadAllConfigurations">
                 <a href="#management" data-toggle="tab" class="fa" data-i18n="[html]ovs:icons.management"></a>
             </li>
+            <!-- ko foreach: $root.tabs -->
+                <li data-bind="tooltip: $data.options[1]">
+                    <a data-toggle="tab" class="fa"
+                       data-bind="attr: { href: '#tabs-' + $data.name }, translate: $data.options[0]"></a>
+                </li>
+            <!-- /ko -->
         </ul>
         <div class="tab-content">
             <div class="tab-pane active" id="snapshots" style="padding: 15px;">
@@ -417,6 +429,11 @@ limitations under the License.
                     </tbody>
                 </table>
             </div>
+            <!-- ko foreach: $root.tabs -->
+                <div class="tab-pane" data-bind="attr: { id: 'tabs-' + $data.name }" style="padding: 15px;">
+                    <!-- ko compose: $data.hook.activator --><!-- /ko -->
+                </div>
+            <!-- /ko -->
         </div>
     </div>
 </section>
