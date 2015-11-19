@@ -122,24 +122,33 @@ define([
                             $.each(metadata.plugins, function(plugin, types) {
                                 if ($.inArray('gui', types) !== -1) {
                                     var moduleHandler = $.Deferred(function(translationDeferred) {
-                                        i18n.loadNamespace(plugin, function () {
-                                            translationDeferred.resolve();
-                                        });
+                                        i18n.loadNamespace(plugin, translationDeferred.resolve);
                                     }).promise();
                                     moduleHandler.then(function() {
                                         return $.Deferred(function(moduleDeferred) {
                                             require(['ovs/hooks/' + plugin], function(hook) {
                                                 routing.extraRoutes.push(hook.routes);
                                                 routing.routePatches.push(hook.routePatches);
-                                                $.each(hook.dashboards, function(index, dashboard) {
-                                                    system.acquire('viewmodels/site/' + dashboard)
-                                                        .then(function(module) {
-                                                            var moduleInstance = new module();
-                                                            shared.hooks.dashboards.push({
-                                                                module: moduleInstance,
-                                                                activator: activator.create()
-                                                            });
+                                                $.each(hook.pages, function(page, types) {
+                                                    $.each(types, function(type, extensions) {
+                                                        $.each(extensions, function(name, options) {
+                                                            if (!shared.hooks.hasOwnProperty(page)) {
+                                                                shared.hooks[page] = {};
+                                                            }
+                                                            if (!shared.hooks[page].hasOwnProperty(type)) {
+                                                                shared.hooks[page][type] = {};
+                                                            }
+                                                            shared.hooks[page][type][name] = {
+                                                                hook: {
+                                                                    system: system,
+                                                                    viewmodel: 'viewmodels/site/' + name,
+                                                                    activator: activator.create()
+                                                                },
+                                                                options: options,
+                                                                name: name
+                                                            };
                                                         });
+                                                    });
                                                 });
                                                 moduleDeferred.resolve();
                                             });

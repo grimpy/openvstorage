@@ -64,8 +64,8 @@ limitations under the License.
                     </div>
                  </div>
             </div>
-            <!-- ko foreach: shared.hooks.dashboards -->
-                <div class="panel panel-default" data-bind="compose: $data.activator"></div>
+            <!-- ko foreach: panels -->
+                <div class="panel panel-default" data-bind="compose: $data.hook.activator"></div>
             <!-- /ko -->
         </div>
         <div class="col-md-4">

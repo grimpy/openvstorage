@@ -37,6 +37,8 @@ define([
 
         // Observables
         self.snapshotsInitialLoad = ko.observable(true);
+        self.tables               = ko.observableArray([]);
+        self.tabs                 = ko.observableArray([]);
         self.vDisk                = ko.observable();
 
         // Functions
@@ -125,6 +127,8 @@ define([
 
         // Durandal
         self.activate = function(mode, guid) {
+            generic.loadHookElements(shared.hooks, 'vdisk-detail', 'tables', self.tables);
+            generic.loadHookElements(shared.hooks, 'vdisk-detail', 'tabs', self.tabs);
             self.vDisk(new VDisk(guid));
             self.refresher.init(self.load, 5000);
             self.refresher.run();
@@ -132,6 +136,8 @@ define([
             self.shared.footerData(self.vDisk);
         };
         self.deactivate = function() {
+            generic.unloadHookElements(shared.hooks, 'vdisk-detail', 'tables', self.tables);
+            generic.unloadHookElements(shared.hooks, 'vdisk-detail', 'tabs', self.tabs);
             $.each(self.widgets, function(index, item) {
                 item.deactivate();
             });

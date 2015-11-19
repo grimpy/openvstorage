@@ -134,6 +134,20 @@ define(['jquery', 'jqp/pnotify'], function($) {
         }
         return fallback;
     }
+    function tryRGet(object, keys, fallback) {
+        var result = $.extend({}, object), key;
+        do {
+            key = keys.shift();
+            result = tryGet(result, key, undefined);
+            if (result === undefined) {
+                return fallback;
+            }
+        } while (keys.length > 0);
+        if (result === undefined) {
+            return fallback;
+        }
+        return result;
+    }
     function trySet(observable, object, key, formatFunction) {
         if (object !== undefined && object.hasOwnProperty(key)) {
             if (formatFunction !== undefined && formatFunction.call) {
@@ -479,6 +493,67 @@ define(['jquery', 'jqp/pnotify'], function($) {
         }
         return object
     }
+    function findElement(array, element, key) {
+        if (key === undefined) {
+            return array.indexOf(element);
+        }
+        var index = -1;
+        $.each(array, function(i, item) {
+            if (item[key] === element[key]) {
+                index = i;
+                return false;
+            }
+        });
+        return index;
+    }
+    function activateHook(hook) {
+        return $.Deferred(function(deferred) {
+            hook.system.acquire(hook.viewmodel)
+                .then(function(module) {
+                    if (!hook.hasOwnProperty('module')) {
+                        hook.module = new module();
+                    }
+                    return hook.activator.activateItem(hook.module);
+                })
+                .done(deferred.resolve)
+                .fail(deferred.reject);
+        }).promise();
+    }
+    function deactivateHook(hook) {
+        return $.Deferred(function(deferred) {
+            hook.activator.deactivateItem(hook.module)
+                .done(deferred.resolve)
+                .fail(deferred.reject);
+        }).promise();
+    }
+    function loadHookElements(hooks, page, type, container, extra) {
+        $.each(tryRGet(hooks, [page, type], []), function(name, info) {
+            activateHook(info.hook);
+            container.push(info);
+            if (extra !== undefined && type === 'columns') {
+                extra.push({
+                    key: info.name,
+                    value: $.t(info.options[0]),
+                    width: info.options[1]
+                });
+            }
+        });
+    }
+    function unloadHookElements(hooks, page, type, container, extra) {
+        $.each(tryRGet(hooks, [page, type], []), function(name, info) {
+            deactivateHook(info.hook);
+            var index = findElement(container(), info, 'name');
+            if (index !== -1) {
+                container.splice(index, 1);
+            }
+            if (extra !== undefined && type === 'columns') {
+                index = findElement(extra(), {key: info.name}, 'key');
+                if (index !== -1) {
+                    extra.splice(index, 1);
+                }
+            }
+        });
+    }
 
     Array.prototype.equals = function(array) {
         return arrayEquals(this, array);
@@ -526,17 +601,23 @@ define(['jquery', 'jqp/pnotify'], function($) {
         padRight: padRight,
         removeCookie: removeCookie,
         removeElement: removeElement,
+        findElement: findElement,
         round: round,
         setCookie: setCookie,
         setDecimals: setDecimals,
         smooth: smooth,
         syncObservableArray: syncObservableArray,
         tryGet: tryGet,
+        tryRGet: tryRGet,
         trySet: trySet,
         validate: validate,
         xhrAbort: xhrAbort,
         xhrCompleted: xhrCompleted,
         isEmpty: isEmpty,
-        extract: extract
+        extract: extract,
+        activateHook: activateHook,
+        deactivateHook: deactivateHook,
+        loadHookElements: loadHookElements,
+        unloadHookElements: unloadHookElements
     };
 });

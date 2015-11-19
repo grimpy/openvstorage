@@ -233,7 +233,8 @@
         "yes": "Yes",
         "address": "Address",
         "city": "City",
-        "country": "Country"
+        "country": "Country",
+        "novmachine": "(no vMachine)"
     },
     "storagerouters": {
         "title": "Storage Routers",
