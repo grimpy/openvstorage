@@ -17,21 +17,7 @@ Mockups module
 """
 
 
-class Snapshot():
-    """
-    Dummy snapshot class
-    """
-
-    def __init__(self, metadata):
-        """
-        Init method
-        """
-        self.metadata = metadata
-        self.stored = 0
-        self.in_backend = True
-
-
-class SRClient():
+class SRClient(object):
     """
     Mocks the SRClient
     """
@@ -43,37 +29,6 @@ class SRClient():
         pass
 
     @staticmethod
-    def list_snapshots(volume_id):
-        """
-        Return fake info
-        """
-        snapshots = StorageDriverClient.snapshots.get(volume_id, {})
-        return snapshots.keys()
-
-    @staticmethod
-    def create_snapshot(volume_id, snapshot_id, metadata):
-        """
-        Create snapshot mockup
-        """
-        snapshots = StorageDriverClient.snapshots.get(volume_id, {})
-        snapshots[snapshot_id] = Snapshot(metadata)
-        StorageDriverClient.snapshots[volume_id] = snapshots
-
-    @staticmethod
-    def info_snapshot(volume_id, guid):
-        """
-        Info snapshot mockup
-        """
-        return StorageDriverClient.snapshots[volume_id][guid]
-
-    @staticmethod
-    def delete_snapshot(volume_id, guid):
-        """
-        Delete snapshot mockup
-        """
-        del StorageDriverClient.snapshots[volume_id][guid]
-
-    @staticmethod
     def info_volume(volume_id):
         """
         Info volume mockup
@@ -83,14 +38,6 @@ class SRClient():
                                  'vrouter_id': property(lambda s: StorageDriverClient.vrouter_id.get(volume_id))})()
 
     @staticmethod
-    def get_scrubbing_workunits(volume_id):
-        """
-        Get scrubbing workload mockup
-        """
-        _ = volume_id
-        return []
-
-    @staticmethod
     def update_metadata_backend_config(volume_id, metadata_backend_config):
         """
         Stores the given config
@@ -98,7 +45,7 @@ class SRClient():
         StorageDriverClient.metadata_backend_config[volume_id] = metadata_backend_config
 
 
-class StorageDriverClient():
+class StorageDriverClient(object):
     """
     Mocks the StorageDriverClient
     """
@@ -132,7 +79,7 @@ class StorageDriverClient():
                                  'vrouter_id': property(lambda s: None)})()
 
 
-class MDSClient():
+class MDSClient(object):
     """
     Mocks the MDSClient
     """
@@ -157,7 +104,7 @@ class MDSClient():
         _ = self, volume_id
 
 
-class MetadataServerClient():
+class MetadataServerClient(object):
     """
     Mocks the MetadataServerClient
     """
@@ -178,7 +125,7 @@ class MetadataServerClient():
         return MDSClient(service)
 
 
-class StorageDriverConfiguration():
+class StorageDriverConfiguration(object):
     """
     Mocks the StorageDriverConfiguration
     """
@@ -190,7 +137,7 @@ class StorageDriverConfiguration():
         pass
 
 
-class StorageDriverModule():
+class StorageDriverModule(object):
     """
     Mocks the StorageDriver
     """

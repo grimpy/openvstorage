@@ -69,7 +69,8 @@
     },
     "plugins": {
         "generic": [],
-        "backends": []
+        "backends": [],
+        "snapshot": []
     },
     "path": {
         "celery": []

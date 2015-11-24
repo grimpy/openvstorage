@@ -16,13 +16,11 @@
 ScheduledTaskController module
 """
 
-import copy
 import time
 import os
 import traceback
 from celery.result import ResultSet
 from celery.schedules import crontab
-from datetime import datetime, timedelta
 from ovs.celery_run import celery
 from ovs.dal.hybrids.diskpartition import DiskPartition
 from ovs.dal.hybrids.vdisk import VDisk
@@ -39,7 +37,6 @@ from ovs.lib.mdsservice import MDSServiceController
 from ovs.lib.vdisk import VDiskController
 from ovs.lib.vmachine import VMachineController
 from ovs.log.logHandler import LogHandler
-from time import mktime
 from volumedriver.storagerouter import storagerouterclient
 
 logger = LogHandler.get('lib', name='scheduled tasks')
@@ -57,11 +54,15 @@ class ScheduledTaskController(object):
     @staticmethod
     @celery.task(name='ovs.scheduled.snapshotall', bind=True, schedule=crontab(minute='0', hour='2-22'))
     @ensure_single(['ovs.scheduled.snapshotall', 'ovs.scheduled.delete_snapshots'])
-    def snapshot_all_vms():
+    def snapshot_all():
         """
         Snapshots all VMachines
         """
-        logger.info('[SSA] started')
+        logger.info('[SSA] Started')
+        if len(Configuration.get('ovs.plugins.snapshot')) > 0:
+            logger.info('[SSA] Build-in snapshotting aborted. Snapshot plugin registered')
+            return
+
         success = []
         fail = []
         machines = VMachineList.get_customer_vmachines()
@@ -74,14 +75,14 @@ class ScheduledTaskController(object):
                 success.append(machine.guid)
             except:
                 fail.append(machine.guid)
-        logger.info('[SSA] Snapshot has been taken for {0} vMachines, {1} failed.'.format(len(success), len(fail)))
+        logger.info('[SSA] Snapshots have been taken for {0} vMachines, {1} failed.'.format(len(success), len(fail)))
 
     @staticmethod
-    @celery.task(name='ovs.scheduled.delete_snapshots', bind=True, schedule=crontab(minute='0', hour='2'))
+    @celery.task(name='ovs.scheduled.delete_snapshots', bind=True, schedule=crontab(minute='0', hour='1'))
     @ensure_single(['ovs.scheduled.delete_snapshots'])
-    def delete_snapshots(timestamp=None):
+    def delete_snapshots():
         """
-        Delete snapshots & scrubbing policy
+        Delete snapshots policy
 
         Implemented delete snapshot policy:
         < 1d | 1d bucket | 1 | best of bucket   | 1d
@@ -91,103 +92,25 @@ class ScheduledTaskController(object):
 
         :param timestamp: Timestamp to determine whether snapshots should be kept or not, if none provided, current time will be used
         """
-
         logger.info('Delete snapshots started')
+        if len(Configuration.get('ovs.plugins.snapshot')) > 0:
+            logger.info('Delete snapshots aborted. Snapshot plugin registered')
+            return
 
-        day = timedelta(1)
-        week = day * 7
-
-        def make_timestamp(offset):
-            return int(mktime((base - offset).timetuple()))
-
-        # Calculate bucket structure
-        if timestamp is None:
-            timestamp = time.time()
-        base = datetime.fromtimestamp(timestamp).date() - day
-        buckets = []
-        # Buckets first 7 days: [0-1[, [1-2[, [2-3[, [3-4[, [4-5[, [5-6[, [6-7[
-        for i in xrange(0, 7):
-            buckets.append({'start': make_timestamp(day * i),
-                            'end': make_timestamp(day * (i + 1)),
-                            'type': '1d',
-                            'snapshots': []})
-        # Week buckets next 3 weeks: [7-14[, [14-21[, [21-28[
-        for i in xrange(1, 4):
-            buckets.append({'start': make_timestamp(week * i),
-                            'end': make_timestamp(week * (i + 1)),
-                            'type': '1w',
-                            'snapshots': []})
-        buckets.append({'start': make_timestamp(week * 4),
-                        'end': 0,
-                        'type': 'rest',
-                        'snapshots': []})
-
-        # Place all snapshots in bucket_chains
-        bucket_chains = []
+        mark = time.time() + (7 * 24 * 60 * 60)  # All snapshots are removed after 7 days
         for vmachine in VMachineList.get_customer_vmachines():
             if any(vd.info['object_type'] in ['BASE'] for vd in vmachine.vdisks):
-                bucket_chain = copy.deepcopy(buckets)
                 for snapshot in vmachine.snapshots:
-                    timestamp = int(snapshot['timestamp'])
-                    for bucket in bucket_chain:
-                        if bucket['start'] >= timestamp > bucket['end']:
-                            for diskguid, snapshotguid in snapshot['snapshots'].iteritems():
-                                bucket['snapshots'].append({'timestamp': timestamp,
-                                                            'snapshotid': snapshotguid,
-                                                            'diskguid': diskguid,
-                                                            'is_consistent': snapshot['is_consistent']})
-                bucket_chains.append(bucket_chain)
-
+                    if int(snapshot['timestamp']) < mark:
+                        for diskguid, snapshotguid in snapshot['snapshots'].iteritems():
+                            VDiskController.delete_snapshot(diskguid=diskguid,
+                                                            snapshotid=snapshotguid)
         for vdisk in VDiskList.get_without_vmachine():
             if vdisk.info['object_type'] in ['BASE']:
-                bucket_chain = copy.deepcopy(buckets)
                 for snapshot in vdisk.snapshots:
-                    timestamp = int(snapshot['timestamp'])
-                    for bucket in bucket_chain:
-                        if bucket['start'] >= timestamp > bucket['end']:
-                            bucket['snapshots'].append({'timestamp': timestamp,
-                                                        'snapshotid': snapshot['guid'],
-                                                        'diskguid': vdisk.guid,
-                                                        'is_consistent': snapshot['is_consistent']})
-                bucket_chains.append(bucket_chain)
-
-        # Clean out the snapshot bucket_chains, we delete the snapshots we want to keep
-        # And we'll remove all snapshots that remain in the buckets
-        for bucket_chain in bucket_chains:
-            first = True
-            for bucket in bucket_chain:
-                if first is True:
-                    best = None
-                    for snapshot in bucket['snapshots']:
-                        if best is None:
-                            best = snapshot
-                        # Consistent is better than inconsistent
-                        elif snapshot['is_consistent'] and not best['is_consistent']:
-                            best = snapshot
-                        # Newer (larger timestamp) is better than older snapshots
-                        elif snapshot['is_consistent'] == best['is_consistent'] and \
-                                snapshot['timestamp'] > best['timestamp']:
-                            best = snapshot
-                    bucket['snapshots'] = [s for s in bucket['snapshots'] if
-                                           s['timestamp'] != best['timestamp']]
-                    first = False
-                elif bucket['end'] > 0:
-                    oldest = None
-                    for snapshot in bucket['snapshots']:
-                        if oldest is None:
-                            oldest = snapshot
-                        # Older (smaller timestamp) is the one we want to keep
-                        elif snapshot['timestamp'] < oldest['timestamp']:
-                            oldest = snapshot
-                    bucket['snapshots'] = [s for s in bucket['snapshots'] if
-                                           s['timestamp'] != oldest['timestamp']]
-
-        # Delete obsolete snapshots
-        for bucket_chain in bucket_chains:
-            for bucket in bucket_chain:
-                for snapshot in bucket['snapshots']:
-                    VDiskController.delete_snapshot(diskguid=snapshot['diskguid'],
-                                                    snapshotid=snapshot['snapshotid'])
+                    if int(snapshot['timestamp']) < mark:
+                        VDiskController.delete_snapshot(diskguid=vdisk.guid,
+                                                        snapshotid=snapshot['guid'])
         logger.info('Delete snapshots finished')
 
     @staticmethod
