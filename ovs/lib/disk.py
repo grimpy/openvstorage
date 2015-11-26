@@ -1,10 +1,10 @@
 # Copyright 2015 iNuron NV
 #
-# Licensed under the Open vStorage Non-Commercial License, Version 1.0 (the "License");
+# Licensed under the Open vStorage Modified Apache License (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.openvstorage.org/OVS_NON_COMMERCIAL
+#     http://www.openvstorage.org/license
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -135,7 +135,10 @@ class DiskController(object):
                             extended_parition_info = True
                             partition_id = device['ID_PART_ENTRY_NUMBER']
                             partition_name = device_name
-                            device_name = device_name[:0 - int(len(partition_id))]
+                            if device_name.startswith('nvme'):
+                                device_name = device_name[:0 - int(len(partition_id)) - 1]
+                            else:
+                                device_name = device_name[:0 - int(len(partition_id))]
                         else:
                             logger.debug('Partition {0} has no partition metadata'.format(device_path))
                             extended_parition_info = False
@@ -152,9 +155,10 @@ class DiskController(object):
                     for path_type in ['by-id', 'by-uuid']:
                         if path is not None:
                             break
-                        for item in device['DEVLINKS'].split(' '):
-                            if path_type in item:
-                                path = item
+                        if 'DEVLINKS' in device:
+                            for item in device['DEVLINKS'].split(' '):
+                                if path_type in item:
+                                    path = item
                     if path is None:
                         path = device_path
                     sectors = int(client.run('cat /sys/block/{0}/size'.format(device_name)))
